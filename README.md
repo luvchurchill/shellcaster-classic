@@ -2,17 +2,10 @@
 
 # Note
 
-This is a leisurely maintained fork of the original
+This is my own leisurely maintained fork of a leisurely maintained fork of the original
 [shellcaster](https://github.com/jeff-hughes/shellcaster/), which is now
-unmaintained. Bugs will be fixed and minor changes will happen, but there should
-not be any new major features. For a more featureful fork, you might be
-interested in [hullcaster](https://github.com/gilcu3/hullcaster).
+unmaintained.
 
-This project is hosted on
-[Gitlab](https://gitlab.com/alpou/shellcaster-classic) and mirrored on
-[Github](https://github.com/Elcoid/shellcaster-classic). Issues and pull
-requests are accepted on both platforms. However, in case of mismatch between
-the two, consider the version on Gitlab as the correct one.
 
 # Shellcaster
 

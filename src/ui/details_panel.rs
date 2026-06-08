@@ -6,6 +6,7 @@ use crossterm::style::{self, Stylize};
 use super::panel::Panel;
 use super::AppColors;
 use super::Scroll;
+use crate::types::display_bidi_text;
 
 /// Used to hold one line of content used in the details panel.
 #[derive(Debug)]
@@ -175,7 +176,10 @@ impl DetailsPanel
 			for line in wrapper
 			{
 				self.content
-					.push(DetailsLine::Line(line.to_string(), Some(bold)));
+					.push(DetailsLine::Line(
+						display_bidi_text(&line),
+						Some(bold)
+					));
 			}
 
 			// episode title
@@ -188,7 +192,10 @@ impl DetailsPanel
 			for line in wrapper
 			{
 				self.content
-					.push(DetailsLine::Line(line.to_string(), Some(bold)));
+					.push(DetailsLine::Line(
+						display_bidi_text(&line),
+						Some(bold)
+					));
 			}
 
 			self.content.push(DetailsLine::Blank); // blank line
@@ -246,7 +253,7 @@ impl DetailsPanel
 					for line in wrapper
 					{
 						self.content.push(
-							DetailsLine::Line(line.to_string(), None)
+							DetailsLine::Line(display_bidi_text(&line), None)
 						);
 					}
 				}
@@ -293,5 +300,75 @@ impl DetailsPanel
 				}
 			}
 		}
+	}
+}
+
+// TESTS ----------------------------------------------------------------
+#[cfg(test)]
+mod tests
+{
+	use super::*;
+	use std::rc::Rc;
+
+	const RTL_START: &str = "\u{202b}";
+	const RTL_END: &str = "\u{202c}";
+
+	fn create_details_panel() -> DetailsPanel
+	{
+		let colors = Rc::new(crate::ui::AppColors::default());
+		DetailsPanel::new(
+			"Details".to_string(),
+			2,
+			colors,
+			20,
+			40,
+			0,
+			(0, 0, 0, 0),
+		)
+	}
+
+	#[test]
+	fn details_marks_rtl_titles_and_descriptions_for_display()
+	{
+		let mut panel = create_details_panel();
+		panel.change_details(Details {
+			pod_title: Some("פודקאסט עברית".to_string()),
+			ep_title: Some("حلقة عربية".to_string()),
+			pubdate: None,
+			duration: None,
+			explicit: None,
+			description: Some("תיאור בעברית".to_string()),
+		});
+
+		assert_eq!(
+			panel.panel.get_row(0),
+			format!("{RTL_START}פודקאסט עברית{RTL_END}")
+		);
+		assert_eq!(
+			panel.panel.get_row(1),
+			format!("{RTL_START}حلقة عربية{RTL_END}")
+		);
+		assert_eq!(
+			panel.panel.get_row(5),
+			format!("{RTL_START}תיאור בעברית{RTL_END}")
+		);
+	}
+
+	#[test]
+	fn details_ltr_text_displays_as_before()
+	{
+		let mut panel = create_details_panel();
+		panel.change_details(Details {
+			pod_title: Some("English podcast".to_string()),
+			ep_title: Some("English episode".to_string()),
+			pubdate: None,
+			duration: None,
+			explicit: None,
+			description: Some("English description".to_string()),
+		});
+
+		assert_eq!(panel.panel.get_row(0), "English podcast");
+		assert_eq!(panel.panel.get_row(1), "English episode");
+		assert_eq!(panel.panel.get_row(5), "English description");
 	}
 }

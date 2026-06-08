@@ -19,6 +19,35 @@ lazy_static! {
 	static ref RE_ARTICLES: Regex = Regex::new(r"^(a|an|the) ").expect("Regex error");
 }
 
+const RTL_EMBED_START: char = '\u{202b}';
+const RTL_EMBED_END: char = '\u{202c}';
+
+pub fn display_bidi_text(text: &str) -> String
+{
+	if has_rtl_char(text)
+	{
+		format!("{RTL_EMBED_START}{text}{RTL_EMBED_END}")
+	}
+	else
+	{
+		text.to_string()
+	}
+}
+
+fn has_rtl_char(text: &str) -> bool
+{
+	text.chars().any(|c| {
+		matches!(
+			c as u32,
+			0x0590..=0x08FF
+				| 0xFB1D..=0xFDFF
+				| 0xFE70..=0xFEFF
+				| 0x10800..=0x10FFF
+				| 0x1E800..=0x1EEFF
+		)
+	})
+}
+
 /// Defines interface used for both podcasts and episodes, to be
 /// used and displayed in menus.
 pub trait Menuable {
@@ -73,13 +102,15 @@ impl Menuable for Podcast {
 			title_length = length - meta_str.chars().count() - 3;
 
 			let out = self.title.substr(0, title_length);
+			let display_out = display_bidi_text(&out);
 
 			return format!(
-				" {out} {meta_str:>width$} ",
+				" {display_out} {meta_str:>width$} ",
 				width = length - out.grapheme_len() - 3
 			); // this pads spaces between title and totals
 		} else {
-			return format!(" {} ", self.title.substr(0, title_length - 2));
+			let out = self.title.substr(0, title_length - 2);
+			return format!(" {} ", display_bidi_text(&out));
 		}
 	}
 
@@ -173,8 +204,9 @@ impl Menuable for Episode {
 				let added_len = meta_str.chars().count();
 
 				let out_added = out.substr(0, length - added_len - 3);
+				let display_out = display_bidi_text(&out_added);
 				return format!(
-					" {out_added} {meta_str:>width$} ",
+					" {display_out} {meta_str:>width$} ",
 					width = length - out_added.grapheme_len() - 3
 				);
 			}
@@ -185,8 +217,9 @@ impl Menuable for Episode {
 					0,
 					length - meta_dur.chars().count() - 3
 				);
+				let display_out = display_bidi_text(&out_added);
 				return format!(
-					" {out_added} {meta_dur:>width$} ",
+					" {display_out} {meta_dur:>width$} ",
 					width = length - out_added.grapheme_len() - 3
 				);
 			}
@@ -196,14 +229,16 @@ impl Menuable for Episode {
 			let dur = self.format_duration();
 			let meta_dur = format!("[{dur}]");
 			let out_added = out.substr(0, length - meta_dur.chars().count() - 3);
+			let display_out = display_bidi_text(&out_added);
 			return format!(
-				" {out_added} {meta_dur:>width$} ",
+				" {display_out} {meta_dur:>width$} ",
 				width = length - out_added.grapheme_len() - 3
 			);
 		}
 		else
 		{
-			return format!(" {} ", out.substr(0, length - 2));
+			let out = out.substr(0, length - 2);
+			return format!(" {} ", display_bidi_text(&out));
 		}
 	}
 
@@ -611,5 +646,70 @@ impl StringUtils for String
 	fn grapheme_len(&self) -> usize
 	{
 		return self.graphemes(true).count();
+	}
+}
+
+#[cfg(test)]
+mod tests
+{
+	use super::*;
+	use chrono::Utc;
+
+	const RTL_START: &str = "\u{202b}";
+	const RTL_END: &str = "\u{202c}";
+
+	fn test_episode(title: &str) -> Episode
+	{
+		Episode {
+			id: 1,
+			pod_id: 1,
+			title: title.to_string(),
+			url: String::new(),
+			guid: String::new(),
+			description: String::new(),
+			pubdate: None,
+			duration: None,
+			path: None,
+			played: false,
+		}
+	}
+
+	#[test]
+	fn podcast_title_marks_rtl_text_for_display()
+	{
+		let podcast = Podcast {
+			id: 1,
+			title: "פודקאסט עברית".to_string(),
+			sort_title: String::new(),
+			url: String::new(),
+			description: None,
+			author: None,
+			explicit: None,
+			last_checked: Utc::now(),
+			episodes: LockVec::new(Vec::new()),
+		};
+
+		assert_eq!(
+			podcast.get_title(20),
+			format!(" {RTL_START}פודקאסט עברית{RTL_END} ")
+		);
+	}
+
+	#[test]
+	fn episode_title_marks_rtl_text_for_display()
+	{
+		assert_eq!(
+			test_episode("حلقة عربية").get_title(20),
+			format!(" {RTL_START}حلقة عربية{RTL_END} ")
+		);
+	}
+
+	#[test]
+	fn ltr_titles_display_as_before()
+	{
+		assert_eq!(
+			test_episode("English episode").get_title(20),
+			" English episode "
+		);
 	}
 }
