@@ -21,25 +21,25 @@ jobs:
             os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             bin: shellcaster
-            archive: shellcaster-linux-x86_64.tar.gz
+            asset: shellcaster-linux-x86_64
 
           - name: windows-x86_64
             os: windows-latest
             target: x86_64-pc-windows-msvc
             bin: shellcaster.exe
-            archive: shellcaster-windows-x86_64.zip
+            asset: shellcaster-windows-x86_64.exe
 
           - name: macos-x86_64
             os: macos-15-intel
             target: x86_64-apple-darwin
             bin: shellcaster
-            archive: shellcaster-macos-x86_64.tar.gz
+            asset: shellcaster-macos-x86_64
 
           - name: macos-aarch64
             os: macos-latest
             target: aarch64-apple-darwin
             bin: shellcaster
-            archive: shellcaster-macos-aarch64.tar.gz
+            asset: shellcaster-macos-aarch64
 
     steps:
       - uses: actions/checkout@v6
@@ -51,26 +51,25 @@ jobs:
       - name: Build
         run: cargo build --release --features sqlite_bundled --target ${{ matrix.target }}
 
-      - name: Package Unix
+      - name: Prepare Unix executable
         if: runner.os != 'Windows'
         run: |
           mkdir dist
-          cp target/${{ matrix.target }}/release/${{ matrix.bin }} dist/
-          tar -C dist -czf ${{ matrix.archive }} ${{ matrix.bin }}
+          cp target/${{ matrix.target }}/release/${{ matrix.bin }} dist/${{ matrix.asset }}
 
-      - name: Package Windows
+      - name: Prepare Windows executable
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           mkdir dist
-          cp target/${{ matrix.target }}/release/${{ matrix.bin }} dist/
-          Compress-Archive -Path dist/${{ matrix.bin }} -DestinationPath ${{ matrix.archive }}
+          cp target/${{ matrix.target }}/release/${{ matrix.bin }} dist/${{ matrix.asset }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.archive }}
-          path: ${{ matrix.archive }}
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.asset }}
+          archive: false
 
   release:
     name: Publish GitHub Release
@@ -80,7 +79,7 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
           merge-multiple: true
